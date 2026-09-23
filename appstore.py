@@ -1,6 +1,11 @@
 import requests
 import json
 import time
+from datetime import datetime
+
+# --------------------------------------------------
+# APPS
+# --------------------------------------------------
 
 APPS = [
     ("mywingo", "wingo", "1673683621"),
@@ -27,13 +32,19 @@ APPS = [
     ("chmobile", "chmobile", "6755728316"),
 ]
 
+OUTPUT_FILE = "reviews.json"
+
 all_rows = []
+
+# --------------------------------------------------
+# DOWNLOAD REVIEWS
+# --------------------------------------------------
 
 for app_name, provider, app_id in APPS:
 
-    print(f"Lade {app_name}")
+    print(f"\nProcessing: {app_name}")
 
-    reviews = []
+    app_reviews = []
     page = 1
 
     while True:
@@ -45,13 +56,7 @@ for app_name, provider, app_id in APPS:
 
         try:
 
-            response = requests.get(
-                url,
-                timeout=30,
-                headers={
-                    "User-Agent": "Mozilla/5.0"
-                }
-            )
+            response = requests.get(url, timeout=30)
 
             if response.status_code != 200:
                 break
@@ -61,20 +66,19 @@ for app_name, provider, app_id in APPS:
             feed = data.get("feed", {})
             entries = feed.get("entry", [])
 
-            page_reviews = [
+            reviews = [
                 entry
                 for entry in entries
                 if "im:rating" in entry
             ]
 
-            if not page_reviews:
+            if not reviews:
                 break
 
-            reviews.extend(page_reviews)
+            app_reviews.extend(reviews)
 
             print(
-                f"  Seite {page}: "
-                f"{len(page_reviews)} Reviews"
+                f"  Page {page}: {len(reviews)} reviews"
             )
 
             page += 1
@@ -82,81 +86,93 @@ for app_name, provider, app_id in APPS:
             time.sleep(0.5)
 
         except Exception as e:
-
-            print(
-                f"Fehler {app_id}: {e}"
-            )
-
+            print(f"Error: {e}")
             break
 
+    # --------------------------------------------------
+    # REMOVE DUPLICATES
+    # --------------------------------------------------
+
+    unique_reviews = []
     seen = set()
 
-    for review in reviews:
+    for review in app_reviews:
 
-        review_id = (
-            review.get("id", {})
-            .get("label")
-        )
+        review_id = review.get(
+            "id", {}
+        ).get("label")
 
-        if review_id in seen:
-            continue
+        if review_id not in seen:
+            seen.add(review_id)
+            unique_reviews.append(review)
 
-        seen.add(review_id)
+    print(
+        f"  Unique reviews: {len(unique_reviews)}"
+    )
+
+    # --------------------------------------------------
+    # NORMALIZE DATA
+    # --------------------------------------------------
+
+    for review in unique_reviews:
 
         all_rows.append({
-            "app_name": app_name,
-            "provider": provider,
-            "app_id": app_id,
-            "language": "n/a",
-            "review_id": review_id,
-            "user": (
-                review.get("author", {})
-                .get("name", {})
-                .get("label")
-            ),
-            "score": (
-                review.get("im:rating", {})
-                .get("label")
-            ),
-            "date": (
-                review.get("updated", {})
-                .get("label")
-            ),
-            "title": (
-                review.get("title", {})
-                .get("label")
-            ),
-            "content": (
-                review.get("content", {})
-                .get("label")
-            ),
-            "thumbs_up": None,
-            "app_version": (
-                review.get("im:version", {})
-                .get("label")
-            ),
-            "reply": None
+            "AppName": app_name,
+            "Provider": provider,
+            "AppID": app_id,
+            "Language": "n/a",
+            "ReviewID": review.get("id", {}).get("label"),
+            "UserName": review.get("author", {})
+                             .get("name", {})
+                             .get("label"),
+            "Score": review.get("im:rating", {})
+                           .get("label"),
+            "Date": review.get("updated", {})
+                          .get("label"),
+            "Content": review.get("content", {})
+                             .get("label"),
+            "ThumbsUpCount": None,
+            "AppVersion": review.get("im:version", {})
+                                .get("label"),
+            "ReplyContent": None,
+            "RepliedAt": None
         })
 
+# --------------------------------------------------
+# SORT BY DATE DESC
+# --------------------------------------------------
+
 all_rows.sort(
-    key=lambda x: x.get("date", ""),
+    key=lambda x: x.get("Date", ""),
     reverse=True
 )
 
+# --------------------------------------------------
+# BUILD RESULT
+# --------------------------------------------------
+
+result = {
+    "generated_at": datetime.utcnow().isoformat() + "Z",
+    "total_reviews": len(all_rows),
+    "reviews": all_rows
+}
+
+# --------------------------------------------------
+# SAVE JSON
+# --------------------------------------------------
+
 with open(
-    "reviews.json",
+    OUTPUT_FILE,
     "w",
     encoding="utf-8"
 ) as f:
-
     json.dump(
-        all_rows,
+        result,
         f,
         ensure_ascii=False,
         indent=2
     )
 
-print(
-    f"reviews.json erstellt "
-    f"({len(all_rows)} Reviews)"
-)
+print("\nDone")
+print(f"Total Reviews: {len(all_rows)}")
+print(f"Output File: {OUTPUT_FILE}")
