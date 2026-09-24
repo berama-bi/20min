@@ -2,18 +2,22 @@ name: Download App Store Reviews
 
 on:
   workflow_dispatch:
+
   schedule:
     - cron: '0 5 * * *'
 
+permissions:
+  contents: write
+
 jobs:
   reviews:
-
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -22,13 +26,34 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install requests
 
       - name: Run scraper
         run: |
           python appstore.py
 
-      - name: Upload JSON
+      - name: Verify reviews.json exists
+        run: |
+          pwd
+          ls -lah
+          if [ ! -f reviews.json ]; then
+            echo "ERROR: reviews.json not found!"
+            exit 1
+          fi
+
+      - name: Commit reviews.json back to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add reviews.json
+
+          git diff --staged --quiet || git commit -m "Update reviews.json"
+
+          git push
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: appstore-reviews
