@@ -33,7 +33,7 @@ SEARCH_TERMS = [
 OUTPUT_FILE = "20min_articles_comments.json"
 
 # Anzahl Suchseiten pro Suchbegriff (per "mehr laden"-Klicks simuliert)
-MAX_SEARCH_PAGES = 1
+MAX_SEARCH_PAGES = 5
 
 # Anzahl Kommentare pro API-Request
 COMMENT_LIMIT = 100
