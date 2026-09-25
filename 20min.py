@@ -39,7 +39,7 @@ MAX_SEARCH_PAGES = 10
 COMMENT_LIMIT = 100
 
 # Pause zwischen Requests
-REQUEST_DELAY = 0.5
+REQUEST_DELAY = 5
 
 # Timeout für Playwright-Navigation/Warten (ms)
 PW_TIMEOUT = 15000
